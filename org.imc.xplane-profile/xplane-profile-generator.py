@@ -22,14 +22,15 @@ Description of this extension
 """
 from typing import List, Tuple
 
+import io
+import pathlib
 import inkex
-import sys
 from inkex.transforms import Vector2d, Transform
-from inkex import Group
+from inkex.utils import errormsg
 from construction_layer_mgr import find_construction_layer, find_sections_in_group
 
 # conversion factor from meters to feet (ACF file is in ft!)
-CONV_M_TO_FT=3.28084
+CONV_M_TO_FT = 3.28084
 
 '''
 def draw_points_along_bezier_curve():
@@ -55,6 +56,7 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
     def add_arguments(self, pars):
         pars.add_argument("--scale-factor", type=float, help="Scale factor")
         pars.add_argument("--num-radii-per-side", type=int, help="The number of sample points to take per side")
+        pars.add_argument("--acf-output-file", type=str, help="The number of sample points to take per side")
 
     def effect(self):
         # inkex.utils.errormsg("File:" + inkex.__file__)
@@ -66,89 +68,105 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
 
         style = {'fill': 'none', 'stroke': 'blue', 'stroke-width': '.1'}
 
-        for elem in self.svg.selection:
-            # selected element should be a group!
-            if not isinstance(elem, inkex.Group):
-                inkex.utils.errormsg("selection should contain only groups! The selected element with eid: {} is a {} skipping".format(elem.eid, elem.typename))
-                break
+        # deal with the output file
+        o_file = None
+        if self.options.acf_output_file:
+            of_path = pathlib.Path(self.options.acf_output_file)
+            if of_path.is_file():
+                backup_path = of_path.with_suffix(of_path.suffix + '.bak')
+                if backup_path.exists():
+                    backup_path.unlink()
+                of_path.rename(backup_path)
 
-            # the group should be marked up as an x-plane:section or contain descendants marked up as such
-            sections = find_sections_in_group(self.svg, elem)
+            o_file = of_path.open('w')
 
-            if len(sections) == 0:
-                inkex.utils.errormsg(
-                    "The selected element with eid: {} is not marked as an x-plane section, nor does it contain any".format(elem.eid, elem.typename))
-                break
-
-            # iterate through each section element
-            indx = 0
-            for section in sections:
-                (valid, section_indx, section_z, profile_el, center_el) = section
-
-                if not valid:
-                    inkex.utils.errormsg(
-                        "The selected element, with eid: {}, is not a validly marked up section check the index, z, center and profile markup!".format(
-                            elem.eid))
+        try:
+            for elem in self.svg.selection:
+                # selected element should be a group!
+                if not isinstance(elem, inkex.Group):
+                    errormsg("selection should contain only groups! The selected element with eid: {} is a {} skipping".format(elem.eid, elem.typename))
                     break
 
-                # find the path element
-                parent = self.construction_layer
+                # the group should be marked up as an x-plane:section or contain descendants marked up as such
+                sections = find_sections_in_group(self.svg, elem)
 
-                # derive the profile and center transforms
-                pel_trans: Transform = profile_el.composed_transform()
-                cen_trans: Transform = center_el.composed_transform()
+                if len(sections) == 0:
+                    errormsg(
+                        "The selected element with eid: {} is not marked as an x-plane section, nor does it contain any".format(elem.eid, elem.typename))
+                    break
 
-                # center of the bounding box
-                center_point = inkex.Path(center_el.get_path()).bounding_box().center
-                # absolute position by applying all transforms
-                center_point = cen_trans.apply_to_point(center_point)
+                # iterate through each section element
+                indx = 0
+                for section in sections:
+                    (valid, section_indx, section_z, profile_el, center_el) = section
 
-                pth = inkex.Path(profile_el.get_path()).transform(pel_trans)
-                path_box = pth.bounding_box()
+                    if not valid:
+                        errormsg(
+                            "The selected element, with eid: {}, is not a validly marked up section check the index, z, center and profile markup!".format(
+                                elem.eid))
+                        break
 
-                current_group = inkex.Group.new(label='element_construction_{}'.format(elem.eid))
-                current_group.transform = elem.composed_transform()
-                parent.append(current_group)
+                    # find the path element
+                    parent = self.construction_layer
 
-                # mark the center of the bounding box
-                current_group.append(inkex.Circle.new(center=path_box.center, radius=1))
+                    # derive the profile and center transforms
+                    pel_trans: Transform = profile_el.composed_transform()
+                    cen_trans: Transform = center_el.composed_transform()
 
-                # set up the initial coordinates for our intersection fan
-                start = path_box.center
-                end = path_box.center + Vector2d(0, -max(path_box.width, path_box.height))
+                    # center of the bounding box
+                    center_point = inkex.Path(center_el.get_path()).bounding_box().center
+                    # absolute position by applying all transforms
+                    center_point = cen_trans.apply_to_point(center_point)
 
-                points = []
+                    pth = inkex.Path(profile_el.get_path()).transform(pel_trans)
+                    path_box = pth.bounding_box()
 
-                # the number of radii samples per side
-                num_radii_per_side = self.options.num_radii_per_side
+                    current_group = inkex.Group.new(label='element_construction_{}'.format(elem.eid))
+                    current_group.transform = elem.composed_transform()
+                    parent.append(current_group)
 
-                # fan from the bounding box center at 10 degree increments 0-180
-                step = 180 / (num_radii_per_side - 1)
-                for i in range(0, num_radii_per_side):
-                    ang = step * i
-                    # rotate the end coord around the box center
-                    tx = Transform().add_rotate(ang, path_box.center)
-                    end1 = tx.apply_to_point(end)
+                    # mark the center of the bounding box
+                    current_group.append(inkex.Circle.new(center=path_box.center, radius=1))
 
-                    # add a construction line to the diagram
-                    lin = inkex.Line.new(start=start, end=end1, style=style)
-                    current_group.append(lin)
+                    # set up the initial coordinates for our intersection fan
+                    start = path_box.center
+                    end = path_box.center + Vector2d(0, -max(path_box.width, path_box.height))
 
-                    # look for intersections between the line and the path
-                    intersections = self.iterate_path_and_intersect_line(pth, lin)
+                    points = []
 
-                    for intersection in intersections:
-                        points.append(intersection)
+                    # the number of radii samples per side
+                    num_radii_per_side = self.options.num_radii_per_side
 
-                # output the acf file content
-                self.write_station_elements(section_indx, section_z, center_point, points)
+                    # fan from the bounding box center at 10 degree increments 0-180
+                    step = 180 / (num_radii_per_side - 1)
+                    for i in range(0, num_radii_per_side):
+                        ang = step * i
+                        # rotate the end coord around the box center
+                        tx = Transform().add_rotate(ang, path_box.center)
+                        end1 = tx.apply_to_point(end)
 
-                # draw a circle at each intersection point
-                for point in points:
-                    circ = inkex.Circle.new(center=point, radius=1, style=style)
-                    circ.transform = elem.transform
-                    current_group.append(circ)
+                        # add a construction line to the diagram
+                        lin = inkex.Line.new(start=start, end=end1, style=style)
+                        current_group.append(lin)
 
+                        # look for intersections between the line and the path
+                        intersections = self.iterate_path_and_intersect_line(pth, lin)
+
+                        for intersection in intersections:
+                            points.append(intersection)
+
+                    # output the acf file content
+                    if o_file:
+                        self.write_station_elements(o_file, section_indx, section_z, center_point, points)
+
+                    # draw a circle at each intersection point
+                    for point in points:
+                        circ = inkex.Circle.new(center=point, radius=1, style=style)
+                        circ.transform = elem.transform
+                        current_group.append(circ)
+        finally:
+            if o_file:
+                o_file.close()
     def iterate_path_and_intersect_line(self, pth: inkex.Path, lin: inkex.Line) -> List[Tuple[float, float]]:
         retval = []
 
@@ -191,30 +209,30 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
 
         return retval
 
-    def write_station_elements(self, station_indx: int, station_z: float, station_center: inkex.Vector2d, points: List[inkex.Vector2d]):
+    def write_station_elements(self, o_file: io.TextIOBase, station_indx: int, station_z: float, station_center: inkex.Vector2d, points: List[inkex.Vector2d]):
         # points are reflected in X so for 8 intersections we have 16 points 0-15
         num_points = len(points) * 2
 
         for point_indx in range(len(points)):
             # position 0 -> (n/2-1)
-            self.write_station_element(station_indx, station_z, point_indx,
+            self.write_station_element(o_file, station_indx, station_z, point_indx,
                                        points[point_indx][0] - station_center.x,
                                        points[point_indx][1] - station_center.y)
             # reflected in x (n-1) -> n/2
-            self.write_station_element(station_indx, station_z, num_points - 1 - point_indx,
+            self.write_station_element(o_file, station_indx, station_z, num_points - 1 - point_indx,
                                        -(points[point_indx][0] - station_center.x),
                                        points[point_indx][1] - station_center.y)
 
-    def write_station_element(self, station_indx: int, station_z: float, point_indx: int, x: float, y: float):
+    def write_station_element(self, o_file: io.TextIOBase, station_indx: int, station_z: float, point_indx: int, x: float, y: float):
         body_num = 0
         # X scaled by file scaling and converted m->ft
         x = x * float(self.options.scale_factor) * CONV_M_TO_FT
-        print('P _body/{}/_geo_xyz/{},{},0 {}'.format(body_num, station_indx, point_indx, round(x, 5)))
+        print('P _body/{}/_geo_xyz/{},{},0 {}'.format(body_num, station_indx, point_indx, round(x, 4)), file=o_file)
         # Y
         y = y * float(self.options.scale_factor) * CONV_M_TO_FT
-        print('P _body/{}/_geo_xyz/{},{},1 {}'.format(body_num, station_indx, point_indx, round(y, 5)))
+        print('P _body/{}/_geo_xyz/{},{},1 {}'.format(body_num, station_indx, point_indx, round(y, 4)), file=o_file)
         # Z
-        print('P _body/{}/_geo_xyz/{},{},2 {}'.format(body_num, station_indx, point_indx, round(station_z, 5)))
+        print('P _body/{}/_geo_xyz/{},{},2 {}'.format(body_num, station_indx, point_indx, round(station_z, 4)), file=o_file)
 
 
 # standalone test command line paramenters: test\drawing.svg --output=test\drawing-out.svg --id=path249 --id=path287 --id=rect341 --id=path427

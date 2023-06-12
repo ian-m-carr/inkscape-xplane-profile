@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+    <name>X-Plane profile generator</name>
+    <id>org.imc.xplane-profile-generator</id>
+    <object-type>Group</object-type>
+    <param name="scale-factor" type="float" gui-text="The scaling factor mm/m for the document">0.01</param>
+    <param name="num-radii-per-side" type="float" gui-text="The number of sample points to take per side, half the number per station!">8</param>
+    <effect>
+        <effects-menu>
+            <submenu name="X-Plane"/>
+        </effects-menu>
+    </effect>
+    <script>
+        <command location="inx" interpreter="python">xplane-profile-generator.py</command>
+    </script>
+</inkscape-extension>

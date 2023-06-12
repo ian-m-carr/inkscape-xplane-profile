@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>X-Plane profile mark profile</name>
+  <id>org.imc.xplane-profile-mark-profile</id>
+  <effect>
+    <effects-menu>
+       <submenu name="X-Plane"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">xplane-profile-mark-profile.py</command>
+  </script>
+</inkscape-extension>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>X-Plane profile mark section</name>
+  <id>org.imc.xplane-profile-mark-section</id>
+  <object-type>Group</object-type>
+  <param name="section_index" type="int" gui-text="The index to generate for the selected section">0</param>
+  <param name="section_z" type="float" gui-text="The z coordinate (distance back, in m) of the cross section">0</param>
+  <effect>
+    <effects-menu>
+       <submenu name="X-Plane"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">xplane-profile-mark-section.py</command>
+  </script>
+</inkscape-extension>

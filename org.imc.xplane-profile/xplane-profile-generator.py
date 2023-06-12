@@ -237,7 +237,7 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
         y = y * float(self.options.scale_factor) * CONV_M_TO_FT
         print('P _body/{}/_geo_xyz/{},{},1 {}'.format(body_num, station_indx, point_indx, round(y, 4)), file=o_file)
         # Z
-        print('P _body/{}/_geo_xyz/{},{},2 {}'.format(body_num, station_indx, point_indx, round(station_z, 4)), file=o_file)
+        print('P _body/{}/_geo_xyz/{},{},2 {}'.format(body_num, station_indx, point_indx, round(station_z * CONV_M_TO_FT, 4)), file=o_file)
 
 
 # standalone test command line paramenters: test\drawing.svg --output=test\drawing-out.svg --id=path249 --id=path287 --id=rect341 --id=path427

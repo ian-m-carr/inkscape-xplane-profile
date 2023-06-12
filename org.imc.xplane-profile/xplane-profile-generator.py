@@ -167,6 +167,7 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
         finally:
             if o_file:
                 o_file.close()
+
     def iterate_path_and_intersect_line(self, pth: inkex.Path, lin: inkex.Line) -> List[Tuple[float, float]]:
         retval = []
 
@@ -222,6 +223,10 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
             self.write_station_element(o_file, station_indx, station_z, num_points - 1 - point_indx,
                                        -(points[point_indx][0] - station_center.x),
                                        points[point_indx][1] - station_center.y)
+
+        # now add the blank entries from numpoints to 18
+        for i in range(num_points, 18):
+            self.write_station_element(o_file, station_indx, station_z, i, 0, 0)
 
     def write_station_element(self, o_file: io.TextIOBase, station_indx: int, station_z: float, point_indx: int, x: float, y: float):
         body_num = 0

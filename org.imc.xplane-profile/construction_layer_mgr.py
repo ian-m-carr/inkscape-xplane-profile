@@ -10,14 +10,15 @@ NSMAP = {
 }
 
 
-def find_sections_in_group(svg: SvgDocumentElement, grp: Group) -> List[Tuple[bool, int, float, inkex.BaseElement, inkex.BaseElement]]:
+def find_sections_in_group(svg: SvgDocumentElement, grp: Group, update_info: bool = False, layer: Layer = None) -> List[
+    Tuple[bool, int, float, inkex.BaseElement, inkex.BaseElement]]:
     # check the group and it's descendants extracting any that are marked up as sections
     xpth = "descendant-or-self::svg:g[@xplane:profile-section]"
     section_els = grp.xpath(xpth, NSMAP)
 
     valid_sections = []
     for section_el in section_els:
-        tuple = validate_section_structure(svg, section_el)
+        tuple = validate_section_structure(svg, section_el, update_info, layer)
         if tuple[0]:
             valid_sections.append(tuple)
 

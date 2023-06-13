@@ -20,6 +20,7 @@
 """
 Description of this extension
 """
+import math
 from typing import List, Tuple
 
 import io
@@ -59,6 +60,10 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
         pars.add_argument("--acf-output-file", type=str, help="The number of sample points to take per side")
 
     def effect(self):
+        if len(self.svg.selection) == 0:
+            errormsg("selection is empty, no action")
+            return
+
         # inkex.utils.errormsg("File:" + inkex.__file__)
         # inkex.utils.errormsg("Exe:" + sys.executable)
         # inkex.utils.errormsg("Path:" + str(sys.path))
@@ -180,7 +185,7 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
                 # just update the current drawing position
                 current_pos = inkex.Vector2d(segment.x, segment.y)
             else:
-                intersections = self.intersect_line_and_curve(((lin.x1, lin.y1), (lin.x2, lin.y2)), current_pos, segment)
+                intersections = self.intersect_line_and_curve(((round(lin.x1,3), round(lin.y1,3)), (round(lin.x2,3), round(lin.y2,3))), current_pos, segment)
 
                 if intersections:
                     for intersection in intersections:
@@ -191,7 +196,19 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
 
         return retval
 
+    def normalize_vector(self, vec: inkex.Vector2d) -> inkex.Vector2d:
+        mag = vec.length
+        return vec / mag
+
     def intersect_line_and_curve(self, lin: inkex.Line, at_pos: inkex.Vector2d, curve: inkex.paths.Curve) -> List[Tuple[float, float]]:
+        # get the coords of the end points of the line
+        p_center = inkex.Vector2d(lin[0][0], lin[0][1])
+        p_end = inkex.Vector2d(lin[1][0], lin[1][1])
+
+        # and the vector in the direction of the line
+        v_lin = p_end - p_center
+        v_lin_n = self.normalize_vector(v_lin)
+
         ((lx1, ly1), (lx2, ly2)) = lin
         points = curve.to_bez()
         bez = (at_pos, points[0], points[1], points[2])
@@ -203,10 +220,18 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
         # we only want the intersections on the line segment passed in!
         # by default, we get all the intersections for the projected infinite length line, forward and backward!
         for intersection in intersections:
-            (ix1, ix2) = intersection
-            # deal with the rounding errors
-            if inkex.paths.CubicSuperPath.is_on([round(ix1, 4), round(ix2, 4)], [round(lx1, 4), round(ly1, 4)], [round(lx2, 4), round(ly2, 4)], 1e-2):
-                retval.append(intersection)
+            # the point
+            p_int = inkex.Vector2d(intersection[0], intersection[1])
+
+            # vector from the center point to the intersection
+            v_int = p_int - p_center
+            v_int_n = self.normalize_vector(v_int)
+
+            # the intersection point is estimated and may not lie on the line absolutely so we allow for a tolerance
+            # for normal shapes what we are expecting to remove is intersections at 180 degrees
+            # are the vectors in the same (...similar) direction and the intersection length is less than the line length
+            if v_lin_n.dot(v_int_n) > .9 and v_lin.length >= v_int.length:
+                retval.append(p_int)
 
         return retval
 
@@ -235,7 +260,7 @@ class XPlaneProfileGenerator(inkex.EffectExtension):
         print('P _body/{}/_geo_xyz/{},{},0 {}'.format(body_num, station_indx, point_indx, round(x, 4)), file=o_file)
         # Y
         y = y * float(self.options.scale_factor) * CONV_M_TO_FT
-        print('P _body/{}/_geo_xyz/{},{},1 {}'.format(body_num, station_indx, point_indx, round(y, 4)), file=o_file)
+        print('P _body/{}/_geo_xyz/{},{},1 {}'.format(body_num, station_indx, point_indx, -round(y, 4)), file=o_file)
         # Z
         print('P _body/{}/_geo_xyz/{},{},2 {}'.format(body_num, station_indx, point_indx, round(station_z * CONV_M_TO_FT, 4)), file=o_file)
 

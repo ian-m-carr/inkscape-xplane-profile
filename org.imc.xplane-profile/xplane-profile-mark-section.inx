@@ -3,8 +3,8 @@
   <name>X-Plane profile mark section</name>
   <id>org.imc.xplane-profile-mark-section</id>
   <object-type>Group</object-type>
-  <param name="section_index" type="int" gui-text="The index to generate for the selected section">0</param>
-  <param name="section_z" type="float" gui-text="The z coordinate (distance back, in m) of the cross section">0</param>
+  <param name="section_index" type="int" min="0" max="19" gui-text="The index to generate for the selected section">0</param>
+  <param name="section_z" type="float" min="0.0" max="100.0" precision="3" gui-text="The z coordinate (distance back, in m) of the cross section">0</param>
   <effect>
     <effects-menu>
        <submenu name="X-Plane"/>

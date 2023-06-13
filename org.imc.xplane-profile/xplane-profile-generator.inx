@@ -3,8 +3,8 @@
     <name>X-Plane profile generator</name>
     <id>org.imc.xplane-profile-generator</id>
     <object-type>Group</object-type>
-    <param name="scale-factor" type="float" gui-text="The scaling factor mm/m for the document">0.01</param>
-    <param name="num-radii-per-side" type="int" gui-text="The number of sample points to take per side, half the number per station!">8</param>
+    <param name="scale-factor" type="float" min="0.0001" max="100.0" precision="3" gui-text="The scaling factor mm/m for the document">0.01</param>
+    <param name="num-radii-per-side" type="int" min="3" max="9" gui-text="The number of sample points to take per side, half the number per station!">8</param>
     <param type="path" name="acf-output-file" gui-text="The file into which the acf content will be written" mode="file_new" filetypes="acf"/>
     <effect>
         <effects-menu>
